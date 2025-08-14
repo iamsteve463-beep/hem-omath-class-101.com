@@ -1,516 +1,179 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Hem's Chase — Math Jail</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Chase Game</title>
 <style>
-  :root{
-    --bg:#071126; --panel:#0f1b2b; --accent:#7dd3fc; --danger:#ff7b7b; --good:#8ef78e;
+  body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #eee;
   }
-  html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#071126,#071a2a);}
-  #ui{position:fixed;left:12px;top:12px;color:#cfe9ff;z-index:60}
-  #ui h1{margin:0;font-size:18px}
-  #gameWrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box}
-  #stage{
-    width:min(980px,96vw); height:min(640px,86vh);
-    background:linear-gradient(180deg,#0b2338,#071026);
-    border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,.6);
-    position:relative; overflow:hidden; touch-action:none;
+  canvas {
+    display: block;
+    background: #222;
   }
-  /* HUD */
-  .hud{position:absolute;left:10px;top:10px;color:#dff3ff;z-index:50;background:rgba(0,0,0,0.2);padding:8px;border-radius:8px;font-size:14px}
-  .hud .row{display:flex;gap:10px;align-items:center}
-  .hud .pill{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px}
-  /* player/hem/jail/obstacles */
-  .entity{position:absolute;will-change:transform}
-  #player{width:34px;height:34px;border-radius:6px;background:#ffd166;border:3px solid #fff3cc;display:flex;align-items:center;justify-content:center;font-weight:700;color:#111}
-  #hem{width:48px;height:48px;border-radius:10px;overflow:hidden;border:3px solid rgba(255,255,255,0.12)}
-  #hem img{width:100%;height:100%;object-fit:cover;display:block}
-  .ob{position:absolute;background:linear-gradient(180deg,#2b3b4b,#16282f);border:2px solid rgba(255,255,255,0.03);box-shadow:inset 0 2px 6px rgba(0,0,0,.5)}
-  #jail{position:absolute;width:120px;height:80px;border:3px dashed rgba(255,255,255,0.06);border-radius:8px;background:linear-gradient(180deg,rgba(0,0,0,0.4),rgba(0,0,0,0.6));display:flex;align-items:center;justify-content:center;color:#ffdcdc;font-weight:700}
-  /* catch overlay / question modal */
-  #modal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:100}
-  .card{background:linear-gradient(180deg,#071a2a,#071026);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);width:min(640px,90%);color:#e6f7ff}
-  .dialog{margin-bottom:12px;font-size:16px}
-  .question{font-weight:700;margin:12px 0}
-  .row{display:flex;gap:8px;align-items:center}
-  input[type="text"]{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#e6f7ff}
-  button{cursor:pointer;padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#033;font-weight:700}
-  button.negative{background:var(--danger);color:#2b0000}
-  /* mobile controls */
-  #controls{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:10px;z-index:70}
-  .dpad{width:140px;height:140px;border-radius:12px;background:rgba(255,255,255,0.03);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;padding:6px}
-  .dpad button{background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.03);font-weight:700;color:#dff3ff}
-  .hide-mobile{display:none}
-  @media(min-width:800px){ #controls{display:none} .hide-mobile{display:inline-block} }
-  /* level badge */
-  .levelBadge{position:absolute;right:12px;top:12px;background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:8px;color:#cfecff;font-weight:700;z-index:50}
-  /* small helpers */
-  .muted{opacity:0.7;font-size:13px}
-  .center{display:flex;align-items:center;justify-content:center}
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+  }
+  #jail-bar-container {
+    width: 200px;
+    height: 20px;
+    border: 2px solid #fff;
+    margin-top: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  #jail-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #f00, #ff0);
+    transition: width 0.2s linear;
+  }
 </style>
 </head>
 <body>
-  <div id="ui">
-    <h1>Hem's Chase — Math Jail</h1>
-    <div class="muted">Survive levels 1 → 10. Mobile-ready.</div>
+
+<div id="hud">
+  <p>Level: <span id="level">1</span></p>
+  <p>High Score: <span id="high-score">0</span></p>
+  <div id="jail-bar-container">
+    <div id="jail-bar"></div>
   </div>
+</div>
 
-  <div id="gameWrap">
-    <div id="stage" tabindex="0">
-      <div class="hud">
-        <div class="row">
-          <div class="pill">Lives: <span id="lives">3</span></div>
-          <div class="pill">Level: <span id="level">1</span></div>
-          <div class="pill">Time left: <span id="levelTime">--</span></div>
-        </div>
-      </div>
-      <div class="levelBadge">Level <span id="levelBadge">1</span></div>
+<audio id="tick-sound">
+  <source src="https://www.soundjay.com/button/beep-07.wav" type="audio/wav">
+</audio>
 
-      <!-- Entities -->
-      <div id="player" class="entity" style="transform:translate(60px,60px)">P</div>
-      <div id="hem" class="entity" style="transform:translate(240px,120px)">
-        <!-- Using embedded base64 teacher image (from your earlier upload) -->
-        <img alt="Hem" src="data:image/jpeg;base64,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" />
-      </div>
-
-      <!-- obstacles will be injected -->
-      <div id="jail" style="left:12px;top:12px">JAIL</div>
-
-      <!-- modal for questions -->
-      <div id="modal">
-        <div class="card">
-          <div class="dialog" id="dialogText">Hem: "Have you read the formula?"</div>
-          <div class="question" id="questionText">Question appears here</div>
-          <div class="row">
-            <input id="answerInput" type="text" placeholder="Type answer (e.g. a^2+b^2=c^2)">
-            <button id="submitAnswer">Submit</button>
-            <button id="forceWrong" class="negative">Skip (force wrong)</button>
-          </div>
-          <div style="height:8px"></div>
-          <div class="muted">Answer exactly or normalized (small differences tolerated).</div>
-        </div>
-      </div>
-
-      <!-- mobile controls -->
-      <div id="controls">
-        <div class="dpad">
-          <div></div><button data-dir="up">⬆</button><div></div>
-          <button data-dir="left">⬅</button><div></div><button data-dir="right">➡</button>
-          <div></div><button data-dir="down">⬇</button><div></div>
-        </div>
-        <div style="text-align:center;color:#cfe9ff;font-size:12px;margin-top:6px;">Touch buttons to move</div>
-      </div>
-    </div>
-  </div>
+<canvas id="gameCanvas"></canvas>
 
 <script>
-(() => {
-  // --- State ---
-  const stage = document.getElementById('stage');
-  const playerEl = document.getElementById('player');
-  const hemEl = document.getElementById('hem');
-  const jailEl = document.getElementById('jail');
-  const modal = document.getElementById('modal');
-  const qText = document.getElementById('questionText');
-  const dialogText = document.getElementById('dialogText');
-  const answerInput = document.getElementById('answerInput');
-  const submitAnswer = document.getElementById('submitAnswer');
-  const forceWrong = document.getElementById('forceWrong');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-  const livesUI = document.getElementById('lives');
-  const levelUI = document.getElementById('level');
-  const levelBadge = document.getElementById('levelBadge');
-  const levelTimeUI = document.getElementById('levelTime');
+// HUD elements
+const levelDisplay = document.getElementById('level');
+const highScoreDisplay = document.getElementById('high-score');
+const jailBar = document.getElementById('jail-bar');
+const tickSound = document.getElementById('tick-sound');
 
-  const controls = document.getElementById('controls');
+let currentLevel = 1;
+let highScore = localStorage.getItem('highScore') || 0;
+highScoreDisplay.textContent = highScore;
 
-  let width, height;
-  let player = { x:60, y:60, w:34, h:34, speed: 140 }; // px/sec
-  let hem = { x:240, y:120, w:48, h:48, speed: 60 };
-  let jail = { x:12, y:12, w:120, h:80 };
-  let obstacles = [];
-  let keys = {};
-  let mobileDir = {x:0,y:0};
-  let lastTime = 0;
-  let caught = false;
-  let inJail = false;
-  let jailTimer = 0;
-  let currentQuestion = null;
-  let lives = 3;
-  let level = 1;
-  let levelDuration = 25; // seconds to survive
-  let levelTimeLeft = levelDuration;
-  let levelRunning = true;
-  let maxLevels = 10;
+// Player
+let player = { x: canvas.width/2, y: canvas.height/2, size: 30, speed: 6 };
 
-  // questions pool
-  const FORMULAS = [
-    { q: 'Pythagorean theorem?', accepts: ['a^2+b^2=c^2','a2+b2=c2','a²+b²=c²']},
-    { q: 'Area of a circle (radius r)?', accepts: ['pir^2','πr^2','pi*r^2']},
-    { q: 'Circumference of a circle (radius r)?', accepts: ['2pir','2πr','2*pi*r']},
-    { q: 'Area of a triangle (base b, height h)?', accepts: ['1/2bh','0.5bh','(1/2)bh','1/2*b*h']},
-    { q: 'Slope between (x1,y1) and (x2,y2)?', accepts: ['(y2-y1)/(x2-x1)','y2-y1/x2-x1','(y₂-y₁)/(x₂-x₁)']},
-    { q: 'Distance between (x1,y1) and (x2,y2)?', accepts: ['sqrt((x2-x1)^2+(y2-y1)^2)','√((x2-x1)^2+(y2-y1)^2)']},
-    { q: 'Quadratic formula for ax^2+bx+c=0?', accepts: ['(-b±sqrt(b^2-4ac))/(2a)','(-b±√(b^2-4ac))/(2a)','(-b+/-sqrt(b^2-4ac))/(2a)']},
-    { q: 'Area of a rectangle (l,w)?', accepts: ['lw','l*w']},
-    { q: 'Simple interest (P,r,t)?', accepts: ['prt','p*r*t']},
-    { q: 'Arithmetic mean of n numbers?', accepts: ['sum/n','(sum)/n','(Σx)/n']},
-  ];
+// Teacher
+let teacher = { x: 100, y: 100, size: 30, speed: 3 };
 
-  // Levels: each level defines additional obstacle layout and hem speed multiplier and survival time
-  const LEVELS = [
-    { speedMult: 1.0, time: 18, map: [] },
-    { speedMult: 1.15, time: 20, map: [{x:200,y:80,w:120,h:18}] },
-    { speedMult: 1.25, time: 22, map: [{x:120,y:160,w:140,h:18},{x:380,y:80,w:18,h:160}] },
-    { speedMult: 1.35, time: 24, map: [{x:70,y:240,w:220,h:18},{x:320,y:200,w:18,h:160}] },
-    { speedMult: 1.45, time: 26, map: [{x:160,y:60,w:18,h:160},{x:420,y:260,w:180,h:18}] },
-    { speedMult: 1.6,  time: 28, map: [{x:80,y:120,w:140,h:18},{x:260,y:60,w:18,h:180},{x:460,y:150,w:18,h:150}] },
-    { speedMult: 1.75, time: 30, map: [{x:40,y:300,w:180,h:18},{x:260,y:220,w:18,h:120},{x:420,y:60,w:18,h:140}] },
-    { speedMult: 1.95, time: 32, map: [{x:100,y:80,w:18,h:200},{x:220,y:360,w:260,h:18},{x:460,y:200,w:18,h:160}] },
-    { speedMult: 2.2,  time: 34, map: [{x:60,y:140,w:120,h:18},{x:260,y:60,w:18,h:220},{x:420,y:320,w:160,h:18}] },
-    { speedMult: 2.5,  time: 40, map: [{x:40,y:200,w:180,h:18},{x:240,y:120,w:18,h:240},{x:420,y:80,w:18,h:200,}] },
-  ];
+// Controls
+let keys = {};
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
 
-  // init sizes & elements
-  function resize(){
-    const rect = stage.getBoundingClientRect();
-    width = rect.width; height = rect.height;
-    // place jail at bottom-left area (but within stage)
-    jail.x = 8; jail.y = height - (jail.h + 12);
-    jailEl.style.left = jail.x + 'px'; jailEl.style.top = jail.y + 'px';
-    // clamp player & hem to stage
-    clampEntities();
+// Game loop
+function update() {
+  // Player movement
+  if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
+  if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
+  if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+  if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+
+  // Teacher chases player
+  const dx = player.x - teacher.x;
+  const dy = player.y - teacher.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > 0) {
+    teacher.x += (dx / dist) * teacher.speed;
+    teacher.y += (dy / dist) * teacher.speed;
   }
 
-  function clampEntities(){
-    player.x = Math.max(6, Math.min(width - player.w - 6, player.x));
-    player.y = Math.max(6, Math.min(height - player.h - 6, player.y));
-    hem.x = Math.max(6, Math.min(width - hem.w - 6, hem.x));
-    hem.y = Math.max(6, Math.min(height - hem.h - 6, hem.y));
-    updatePositions();
+  // Check collision
+  if (dist < (player.size + teacher.size)/2) {
+    startJailTimer();
   }
+}
 
-  function updatePositions(){
-    playerEl.style.transform = `translate(${player.x}px,${player.y}px)`;
-    hemEl.style.transform = `translate(${hem.x}px,${hem.y}px)`;
-  }
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // obstacles drawing
-  function clearObstacles(){
-    obstacles = [];
-    [...stage.querySelectorAll('.ob')].forEach(n=>n.remove());
-  }
-  function applyMap(map){
-    clearObstacles();
-    map.forEach(r => {
-      const el = document.createElement('div');
-      el.className = 'ob';
-      el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
-      el.style.width = (r.w||80) + 'px'; el.style.height = (r.h||18) + 'px';
-      stage.appendChild(el);
-      obstacles.push({...r, el});
-    });
-  }
+  // Player
+  ctx.fillStyle = '#0f0';
+  ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
 
-  // collision helpers (AABB)
-  function rectsOverlap(a,b){
-    return !(a.x + a.w <= b.x || a.x >= b.x + b.w || a.y + a.h <= b.y || a.y >= b.y + b.h);
-  }
+  // Teacher
+  ctx.fillStyle = '#f00';
+  ctx.fillRect(teacher.x - teacher.size/2, teacher.y - teacher.size/2, teacher.size, teacher.size);
 
-  // movement / controls
-  window.addEventListener('resize', resize);
-  stage.addEventListener('click', ()=>stage.focus());
-  document.addEventListener('keydown', e => {
-    keys[e.key.toLowerCase()] = true;
-  });
-  document.addEventListener('keyup', e => {
-    keys[e.key.toLowerCase()] = false;
-  });
+  requestAnimationFrame(draw);
+}
 
-  // mobile buttons
-  controls.querySelectorAll('button[data-dir]').forEach(btn=>{
-    const d = btn.dataset.dir;
-    btn.addEventListener('touchstart', e=>{ e.preventDefault(); setMobileDir(d,1); });
-    btn.addEventListener('touchend', e=>{ e.preventDefault(); setMobileDir(d,0); });
-    btn.addEventListener('mousedown', e=>{ e.preventDefault(); setMobileDir(d,1); });
-    btn.addEventListener('mouseup', e=>{ e.preventDefault(); setMobileDir(d,0); });
-  });
-  function setMobileDir(dir, on){
-    const val = on ? 1 : 0;
-    if(dir === 'up') mobileDir.y = on ? -1 : (keys['arrowdown']||keys['s'] ? 1 : 0);
-    if(dir === 'down') mobileDir.y = on ? 1 : (keys['arrowup']||keys['w'] ? -1 : 0);
-    if(dir === 'left') mobileDir.x = on ? -1 : (keys['arrowright']||keys['d'] ? 1 : 0);
-    if(dir === 'right') mobileDir.x = on ? 1 : (keys['arrowleft']||keys['a'] ? -1 : 0);
-  }
+// Jail timer
+let jailActive = false;
+function startJailTimer() {
+  if (jailActive) return;
+  jailActive = true;
 
-  // pick question
-  function pickQuestion(){
-    const idx = Math.floor(Math.random()*FORMULAS.length);
-    const item = FORMULAS[idx];
-    currentQuestion = { ...item };
-    qText.textContent = item.q;
-  }
-  // normalize answer
-  function normalize(s){
-    return String(s||'').toLowerCase().replace(/\s+/g,'').replace(/·|×/g,'*').replace(/[–—]/g,'-').replace(/π/g,'pi').replace(/√/g,'sqrt').replace(/²/g,'^2').replace(/₁/g,'1').replace(/₂/g,'2');
-  }
+  let time = 9;
+  let elapsed = 0;
+  jailBar.style.width = '0%';
 
-  // speak with "voice crack"
-  function hemSpeak(text, crack=false){
-    try{
-      const utter = new SpeechSynthesisUtterance(text);
-      // robotic-ish voice: use lower rate and vary pitch slightly
-      utter.rate = 0.95;
-      // simulate crack by splitting phrase
-      if(crack){
-        // split in two parts roughly middle
-        const mid = Math.floor(text.length/2);
-        const first = text.slice(0,mid);
-        const second = text.slice(mid);
-        const u1 = new SpeechSynthesisUtterance(first);
-        u1.rate = utter.rate; u1.pitch = 1.0;
-        const u2 = new SpeechSynthesisUtterance(second);
-        u2.rate = utter.rate; u2.pitch = 0.35 + Math.random()*0.9; // lower or higher pitch to sound cracky
-        speechSynthesis.speak(u1);
-        setTimeout(()=>speechSynthesis.speak(u2), 240);
+  const interval = setInterval(() => {
+    elapsed++;
+    const progress = (elapsed / time) * 100;
+    jailBar.style.width = progress + '%';
+    tickSound.currentTime = 0;
+    tickSound.play();
+
+    if (elapsed >= time) {
+      clearInterval(interval);
+      jailActive = false;
+      // Ask formula question
+      const answer = prompt("What is 2 + 2?");
+      if (answer != '4') {
+        alert("Wrong! Back to jail!");
+        startJailTimer(); // repeat
       } else {
-        utter.pitch = 0.9 + Math.random()*0.2;
-        speechSynthesis.speak(utter);
-      }
-    }catch(e){}
-  }
-
-  // catch handling
-  function onCaught(){
-    caught = true;
-    levelRunning = false;
-    // present dialog
-    dialogText.textContent = 'Hem: "Have you read the formula?"';
-    pickQuestion();
-    answerInput.value = '';
-    modal.style.display = 'flex';
-    answerInput.focus();
-    // speak with crack randomly
-    hemSpeak('Have you read the formula? Wait! I will keep you till 9 pm and call your mother!', true);
-  }
-
-  // perform check answer
-  submitAnswer.addEventListener('click', ()=> {
-    const v = normalize(answerInput.value);
-    if(!currentQuestion) return;
-    const ok = currentQuestion.accepts.some(a => normalize(a) === v);
-    modal.style.display = 'none';
-    caught = false;
-    if(ok){
-      // free instantly
-      hemSpeak('Good. You may go.');
-      addLog('You answered correctly. Free to run!');
-      // resume level running
-      levelRunning = true;
-    } else {
-      // go to jail: hem drags player to jail and lock for 9s
-      hemSpeak('Wrong. I will keep you until 9 pm and call your mother.', true);
-      addLog('Wrong answer — dragged to jail for 9 seconds.');
-      sendToJail();
-    }
-  });
-  forceWrong.addEventListener('click', ()=> {
-    submitAnswer.click();
-  });
-
-  function sendToJail(){
-    inJail = true;
-    jailTimer = 9.0; // seconds
-    // teleport player into jail center, hem stands at door
-    player.x = jail.x + 8; player.y = jail.y + 8;
-    hem.x = jail.x + jail.w + 6; hem.y = jail.y + (jail.h/2) - (hem.h/2);
-    updatePositions();
-    updateHUD();
-    // lock movement
-    levelRunning = false;
-    // show small countdown overlay on jail element
-    jailEl.textContent = 'JAIL\n' + Math.ceil(jailTimer) + 's';
-    const jailInterval = setInterval(()=> {
-      jailEl.textContent = 'JAIL\n' + Math.ceil(jailTimer) + 's';
-    }, 250);
-    // start release timer
-    const release = setInterval(()=> {
-      jailTimer -= 0.25;
-      if(jailTimer <= 0){
-        clearInterval(release);
-        clearInterval(jailInterval);
-        inJail = false;
-        jailEl.textContent = 'JAIL';
-        lives -= 1;
-        livesUI.textContent = String(lives);
-        if(lives <= 0){
-          gameOver();
-        } else {
-          levelRunning = true;
-          // respawn player near center
-          spawnPlayer();
+        alert("Correct! Continue!");
+        // Level up
+        currentLevel++;
+        if (currentLevel > 10) currentLevel = 10;
+        levelDisplay.textContent = currentLevel;
+        if (currentLevel > highScore) {
+          highScore = currentLevel;
+          localStorage.setItem('highScore', highScore);
+          highScoreDisplay.textContent = highScore;
         }
       }
-    }, 250);
-  }
-
-  function addLog(txt){
-    // small on-screen textual log appended to modal? instead use console and HUD
-    console.log(txt);
-  }
-
-  function spawnPlayer(){
-    player.x = 40 + Math.random()*(width/2);
-    player.y = 40 + Math.random()*(height/2);
-    hem.x = width - 140 - Math.random()*80;
-    hem.y = 60 + Math.random()*80;
-    clampEntities();
-  }
-
-  // game over
-  function gameOver(){
-    levelRunning = false;
-    alert('Game over — you are out of lives. Reload to play again.');
-    // disable inputs
-    document.removeEventListener('keydown', ()=>{});
-  }
-
-  // reach level success
-  function levelSuccess(){
-    level++;
-    if(level > maxLevels){
-      alert('Congratulations! You survived all levels!');
-      level = maxLevels;
-      levelRunning = false;
-      return;
     }
-    // apply new level parameters
-    applyLevel(level);
-  }
+  }, 1000);
+}
 
-  function applyLevel(n){
-    const li = Math.max(1, Math.min(LEVELS.length, n));
-    const lev = LEVELS[li-1];
-    hem.speed = 60 * lev.speedMult;
-    levelDuration = lev.time;
-    levelTimeLeft = levelDuration;
-    levelUI.textContent = String(li);
-    levelBadge.textContent = String(li);
-    // apply map obstacles
-    applyMap(lev.map);
-    // spawn player & hem reasonably
-    spawnPlayer();
-    // resume
-    levelRunning = true;
-  }
+// Mobile touch controls
+canvas.addEventListener('touchmove', function(e) {
+  const touch = e.touches[0];
+  player.x = touch.clientX;
+  player.y = touch.clientY;
+}, { passive: false });
 
-  // main loop
-  function tick(ts){
-    if(!lastTime) lastTime = ts;
-    const dt = Math.min(0.06, (ts - lastTime)/1000); // cap dt
-    lastTime = ts;
+function gameLoop() {
+  update();
+  requestAnimationFrame(gameLoop);
+}
 
-    // update level timer
-    if(levelRunning && !caught && !inJail){
-      levelTimeLeft -= dt;
-      if(levelTimeLeft <= 0){
-        // level passed
-        levelSuccess();
-      }
-    }
-    levelTimeUI.textContent = Math.ceil(levelTimeLeft) + 's';
-
-    // movement
-    if(!caught && !inJail){
-      // compute desired dir
-      let dx=0, dy=0;
-      if(keys['arrowup']||keys['w']) dy -= 1;
-      if(keys['arrowdown']||keys['s']) dy += 1;
-      if(keys['arrowleft']||keys['a']) dx -= 1;
-      if(keys['arrowright']||keys['d']) dx += 1;
-      // mobile dir overrides if set
-      if(mobileDir.x) dx = mobileDir.x;
-      if(mobileDir.y) dy = mobileDir.y;
-      // normalize
-      if(dx!==0 || dy!==0){
-        const len = Math.hypot(dx,dy);
-        dx/=len; dy/=len;
-        player.x += dx * player.speed * dt;
-        player.y += dy * player.speed * dt;
-        // collision with stage bounds
-        clampEntities();
-        // obstacle collisions: simple pushback
-        obstacles.forEach(o=>{
-          const rectO = {x:o.x,y:o.y,w:o.w,h:o.h};
-          const rectP = {x:player.x,y:player.y,w:player.w,h:player.h};
-          if(rectsOverlap(rectP,rectO)){
-            // push back along move vector
-            player.x -= dx * player.speed * dt * 1.2;
-            player.y -= dy * player.speed * dt * 1.2;
-            clampEntities();
-          }
-        });
-      }
-    }
-
-    // hem AI: move toward player unless caught/inJail
-    if(!inJail){
-      const toX = player.x - hem.x;
-      const toY = player.y - hem.y;
-      const dist = Math.hypot(toX, toY) || 1;
-      const vx = (toX/dist) * hem.speed * dt;
-      const vy = (toY/dist) * hem.speed * dt;
-      hem.x += vx; hem.y += vy;
-      // Hem collides with obstacles (simple sliding)
-      obstacles.forEach(o=>{
-        const rectO = {x:o.x,y:o.y,w:o.w,h:o.h};
-        const rectH = {x:hem.x,y:hem.y,w:hem.w,h:hem.h};
-        if(rectsOverlap(rectH,rectO)){
-          // revert small movement and try axis separate
-          hem.x -= vx; hem.y -= vy;
-          // try x-only
-          hem.x += (toX/dist) * hem.speed * dt;
-          if(rectsOverlap({x:hem.x,y:hem.y,w:hem.w,h:hem.h},rectO)) hem.x -= (toX/dist) * hem.speed * dt;
-          hem.y += (toY/dist) * hem.speed * dt;
-          if(rectsOverlap({x:hem.x,y:hem.y,w:hem.w,h:hem.h},rectO)) hem.y -= (toY/dist) * hem.speed * dt;
-        }
-      });
-    }
-
-    // update positions
-    updatePositions();
-
-    // check caught
-    if(!caught && !inJail){
-      if(rectsOverlap({x:player.x,y:player.y,w:player.w,h:player.h},{x:hem.x,y:hem.y,w:hem.w,h:hem.h})){
-        // Hem caught player
-        onCaught();
-      }
-    }
-
-    requestAnimationFrame(tick);
-  }
-
-  // start
-  function startGame(){
-    resize();
-    applyLevel(level);
-    // set UI
-    livesUI.textContent = String(lives);
-    levelUI.textContent = String(level);
-    levelBadge.textContent = String(level);
-    requestAnimationFrame(tick);
-  }
-
-  // helper: allow tapping stage to focus
-  stage.addEventListener('touchstart', ()=>stage.focus());
-
-  // init controls on-screen small helper
-  document.getElementById('stage').addEventListener('focus', ()=>{});
-  window.addEventListener('load', startGame);
-})();
+draw();
+gameLoop();
 </script>
+
 </body>
 </html>
